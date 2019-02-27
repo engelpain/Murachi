@@ -1,0 +1,383 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Javascript firma p12 Demo</title>
+  <script src="./js/jquery.min.js"></script>
+  <!-- <script src="./js/hwcryptomodified.js"></script> -->
+  <script src="./js/hwcrypto.js"></script>
+  <script src="./testing/forge.min.js"></script>
+</head>
+<body>
+
+  <main>
+    <form enctype="multipart/form-data" method="post" id="firmar" name="SignFormat">
+
+      <h1>Firmar electrónica (PDF)</h1>
+      <p>Seleccione el archivo que va a firmar electrónicamente</p>
+
+      
+      <p>
+        <label for="pfx">Seleccione el archivo PFX / P12::</label>
+        <input name="pfx" class="form-control" type="file" id="pfx" accept=".pfx,.p12" required />
+      </p>
+
+      <p>
+        <label for="file-sign"><strong>PDF:</strong></label>
+        <input id="file-sign" class="file" type="file" data-min-file-count="1" name="upload" accept=".pdf">
+      </p>
+
+      <!-- 
+      <p>
+        <label for="pfxp">Ingrese la contraseña de clave privada:</label><br>
+        <input name="pfxp" class="form-control" type="password" id="pfxp" /><br>
+      </p>
+      -->
+
+      <p>
+        <button type="button" name="buttonsubmit3" id="buttonsubmit3" onclick="FirmarPDF();" class="btn btn-primary btn-lg">Firmar</button>
+        <button type="reset" id="reset"  class="btn btn-default">Limpiar</button>
+      </p>
+    </form>
+
+    <div id="seccion1"></div>
+    <div id="seccion2"></div>
+    <div id="seccion3"></div>
+    <div id="seccion4"></div>
+
+  </main>
+
+<script>
+
+// Promises 
+//{nonce: "d4c3erbn867z19lq", result: "ok", signature: "a712ac83e351993b6890319d91bc4b443cb2af2efe0a1197a8…0b0c3d902eea6fbcd98cb63ebc9dde32d91a36795cd8d2597", src: "background.js", extension: "0.0.29"}
+
+/*
+_eid_promises = { nonce: "", result: "ok", signature: "a712ac83e351993b6890319d91bc4b443cb2af2efe0a1197a8…0b0c3d902eea6fbcd98cb63ebc9dde32d91a36795cd8d2597", src: "background.js", extension: "0.0.29"};
+
+  function createNonce() {
+    var val = "";
+    var hex = "abcdefghijklmnopqrstuvwxyz0123456789"; 
+    for(var i = 0; i < 16; i++) val += hex.charAt(Math.floor(Math.random() * hex.length)); 
+    _eid_promises.nonce = val; 
+  }
+
+  createNonce();
+  console.log(_eid_promises);
+*/
+
+
+
+
+  hwcrypto.getCertificate({lang: "en"}).then(function(response) {
+    console.log(response);
+  });
+
+
+  // Input donde se sube el .p12
+  var formulario = document.querySelector("#pfx");
+
+  /**
+   * Variables llenadas al subir el .p12
+   * @var pkcs12        Certificado .p12 (el archivo)
+   * @var pkcs12Der     Certificado traducido de arrayBuffer a String
+   * @var pkcs12B64     Certificado traducido de String a Base64
+   * @var privateKey    Clave privada del certificado
+   * @var certP12bag    Contiene un objeto 
+   * @var certpem       Contendrá el certificado (gpg)
+   * @var certBytesHex  Certificado en Hexadecimal
+   */
+  var pkcs12 = null;
+  var pkcs12Der = null;
+  var pkcs12B64 = null;
+  var privateKey = null;
+  var certP12bag = null;
+  var certpem = ""; 
+  var certBytesHex = null;
+
+
+
+  var signatureHEX = "";        // -- Variable que hace algo
+  var signatureBytesHEX = "";   // -- Variable que hace algo
+  var certCount = 0;            // -- Variable que hace algo
+  var digestToSignB64 = "";     // -- Variable que hace algo
+  var asn1Cert = null;          // -- Variable que hace algo
+  var p12Der = null;            // -- Variable que hace algo
+  var cerToDer = null;          // -- Variable que hace algo
+  var pkcs12Asn1 = null;        // -- Variable que hace algo
+  var certT = {};               // -- Variable que hace algo
+
+
+
+
+  /**
+   * Convierte una cadena en un ArrayBuffer
+   */
+  function stringToArrayBuffer(data) {
+    var arrBuff = new ArrayBuffer(data.length);
+    var writer = new Uint8Array(arrBuff);
+    for (var i = 0, len = data.length; i < len; i++) {
+      writer[i] = data.charCodeAt(i);
+    }
+    return arrBuff;
+  }
+
+
+
+  /**
+   * Convierte un ArrayBuffer en una cadena
+   */
+  function arrayBufferToString(buffer) {
+    var binary = '';
+    var bytes = new Uint8Array( buffer );
+    var len = bytes.byteLength;
+    for (var i = 0; i < len; i++) {
+      binary += String.fromCharCode( bytes[ i ] );
+    }
+    return binary;
+  }
+
+
+
+  /**
+   * Convierte la clave privada a PKCS#8
+   */
+  function privateKeyToPkcs8(privateKey) {
+    var rsaPrivateKey = forge.pki.privateKeyToAsn1(privateKey);
+    var privateKeyInfo = forge.pki.wrapRsaPrivateKey(rsaPrivateKey);
+    var privateKeyInfoDer = forge.asn1.toDer(privateKeyInfo).getBytes();
+    var privateKeyInfoDerBuff = stringToArrayBuffer(privateKeyInfoDer);
+    return privateKeyInfoDerBuff;
+  }
+
+
+
+  /**
+   * Crea una CryptoKey de un PKCS#12 a un Private Key
+   */
+  function importCryptoKeyPkcs8(privateKey, extractable) {
+    var privateKeyInfoDerBuff = privateKeyToPkcs8(privateKey);
+    //Importa la clave en la webcrypto
+    return crypto.subtle.importKey(
+      'pkcs8',
+      privateKeyInfoDerBuff,
+      { name: "RSASSA-PKCS1-v1_5", hash:{name:"SHA-256"}},
+      extractable,
+      ["sign"]);
+  }
+
+
+
+  /**
+   * Function para obtener la clave privada y el certificado del archivo .p12
+   */
+  function obtenerCertificado() {
+
+    // El archivo .p12 subido al DOM
+    var file = formulario.files[0];
+
+    // Crea un nuevo objeto tipo FileReader
+    var reader = new FileReader();
+
+    reader.onload = function(e) {
+
+      // Array Buffer
+      var contents = e.target.result;
+
+      pkcs12Der = arrayBufferToString(contents)
+      pkcs12B64 = forge.util.encode64(pkcs12Der);
+      pkcs12Asn1 = forge.asn1.fromDer(pkcs12Der);
+      //var password = $('#pfxp').val();
+      var password = "123456";
+      //var password = prompt("Contraseña del .p12", "123456");
+      
+      pkcs12 = forge.pkcs12.pkcs12FromAsn1(pkcs12Asn1, false, password);
+      console.log("p12 cargado - Inicio");
+      console.log(pkcs12);
+
+      // load keys
+      for(var sci = 0; sci < pkcs12.safeContents.length; ++sci) {
+        var safeContents = pkcs12.safeContents[sci];
+        for(var sbi = 0; sbi < safeContents.safeBags.length; ++sbi) {
+          var safeBag = safeContents.safeBags[sbi];
+          if(safeBag.type === forge.pki.oids.keyBag) {
+            privateKey = safeBag.key;
+          } else if(safeBag.type === forge.pki.oids.pkcs8ShroudedKeyBag) {
+            privateKey = safeBag.key;
+          } else if(safeBag.type === forge.pki.oids.certBag) {
+            if(certP12bag == null) {
+              certP12bag = safeBag.cert;
+              certpem = forge.pki.certificateToPem(certP12bag);
+              certBytesHex = forge.util.bytesToHex(certpem);
+            }
+          } 
+        }
+      }
+    }
+    reader.readAsArrayBuffer(file);
+  }
+
+
+  /**
+   * Evento: al adjuntar el .p12 al input, se ejecutará la función de obtener certificado
+   */
+  formulario.addEventListener('change', function() {
+    obtenerCertificado();
+  }, true);
+
+
+
+  /**
+   * Función para firmar
+   */
+  function FirmarPDF() {
+
+    // 1. Se obtiene el certificado
+    var fileInput = document.getElementById("file-sign");
+    var list = fileInput.files;
+    var form = $('firmar')[0];
+    var data = new FormData();
+    data.append('upload', $("#file-sign")[0].files[0]);
+
+    // 2. Se sube el certificado
+    $.ajax({
+      url: "https://murachi.cenditel.gob.ve/Murachi/0.1/archivos",
+      type: "post",
+      dataType: "json",
+      data: data,
+      cache: false,
+      contentType: false,
+      processData: false,
+      xhrFields: {withCredentials: true},
+      headers: {"Authorization":"Basic YWRtaW46YWRtaW4="},
+
+      // 2.1. Se evalua la respuesta de la consulta a Murachí 
+      success: function(response) {
+        var responseString = JSON.stringify(response);
+        document.getElementById("seccion1").innerHTML = responseString;
+        var fileId = response.fileId.toString();
+        console.log(responseString);
+
+        // Condición: Si tiene el certificado
+        if(certBytesHex != null) {
+
+          // -- CERTIFICADO
+          var cert = certBytesHex;
+          console.log("certGet:"+ cert);
+
+          // -- Parámetros para la segunda consulta
+          var parameters = JSON.stringify({
+            "fileId": fileId,
+            "certificate": cert,
+            "reason": "Certificado",
+            "location": "CENDITEL",
+            "contact": "582746574336",
+            "signatureVisible": "true"
+          });
+
+          // -- Segunda consulta
+          $.ajax({
+            type: 'POST',
+            contentType: 'application/json',
+            url: "https://murachi.cenditel.gob.ve/Murachi/0.1/archivos/pdfs",
+            dataType: "json",
+            data: parameters,
+            xhrFields: {withCredentials: true},
+            headers: {"Authorization":"Basic YWRtaW46YWRtaW4="},
+            
+
+
+            success: function(data, textStatus, jqXHR) {
+              // data - Objeto obtenido de Murachí que contienen el hash
+              // Estado de la consulta -- success
+              // Objeto que no se que hace hasta ahora
+
+              var responseString = JSON.stringify(data);
+              document.getElementById("seccion2").innerHTML = responseString;
+
+              var hash = data['hash'];
+              console.log("hash recibido del servidor " + hash);
+
+
+
+              // función para obtener el certificado del dispositivo criptografico
+              window.hwcrypto.getCertificate({lang: "en"}).then(function(response) {
+                //cambio por la información del certificado firmante .p12
+                response = certT;
+                certT.hex = certBytesHex;
+                certT.encoded = pkcs12B64;
+                var hashtype = "SHA-256";
+                var lang = "eng";
+                console.log(data);
+
+                //función que firma el hash y le paso el objeto firmante modificado con la información del .p12
+                window.hwcrypto.sign(certT, { type: hashtype, hex: hash }, { lang: lang }).then(function(signature) {
+
+                  console.log(certT.hex);
+                  /*
+                $.ajax({
+                  type: 'POST',
+                  contentType: 'application/json',
+                  url: 'https://murachi.cenditel.gob.ve/Murachi/0.1/archivos/pdfs/resenas',
+                  data: JSON.stringify({"signature": certT.hex}),
+                  dataType: 'json',
+                  xhrFields: {withCredentials: true},
+                  headers: {"Authorization":"Basic YWRtaW46YWRtaW4="},
+                  success: function(data, textStatus, jqXHR){
+                    console.log(data);
+                    alert('Archivo firmado correctamente: ' + data['signedFileId']);
+                    document.getElementById("seccion4").innerHTML = "Descargar archivo firmado: https://murachi.cenditel.gob.ve/Murachi/0.1/archivos/descargas/" + data['signedFileId'];
+                  },
+                  error: function(jqXHR, textStatus, errorThrown){
+                    alert('error en pdfs/resenas: ' + textStatus);
+                  }
+                });
+
+                  */
+
+
+
+
+                    /*////////////////////////////////////////////////////
+                  $.ajax({
+                    type: 'POST',
+                    contentType: 'application/json',
+                    url:"https://murachi.cenditel.gob.ve/Murachi/0.1/archivos/pdfs/resenas",
+                    dataType: 'json',
+                    data: JSON.stringify({"signature": signature.hex }),
+                    data: parameters,
+                    xhrFields: {withCredentials: true},
+                    headers: {"Authorization":"Basic YWRtaW46YWRtaW4="},
+                    success: function(data, textStatus, jqXHR){
+                      var responseString = JSON.stringify(data);
+                      document.getElementById("seccion3").innerHTML = responseString;
+                      alert('Archivo firmado correctamente: ' + data['signedFileId']);
+                    }, error: function(jqXHR, textStatus, errorThrown){
+                      alert('error en pdfs/resenas: ' + textStatus);
+                      $("#respuesta").html("error en pdfs/resenas: " + textStatus);
+                    } // repuesta del ajax 3
+                  }) //ajax 3
+                    ////////////////////////////////////////////////////*/
+
+
+
+                }) // cierre del window.hwcrypto.sign()
+
+              });// cierre de window.getcertificate()
+            }
+          });
+          // -- ./Segunda consulta
+
+        } else {
+          console.log("No se pudo obtener el certificado");
+        }
+      }
+    })
+
+
+  }
+</script>
+
+
+</body>
+</html>
