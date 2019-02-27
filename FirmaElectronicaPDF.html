@@ -5,37 +5,39 @@
   <title>Firma electrónica de Murachí</title>
 <body>
 
-<form enctype="multipart/form-data" method="POST" id="firmar" name="SignFormat">
-	<h2>Firmar electr&oacute;nica (PDF)</h2>
-	<h3>Seleccione el archivo que va a firmar electr&oacute;nicamente</h2>		
-	<br>
-    <input id="file-sign" class="file" type="file" data-min-file-count="1" name="upload" accept="application/pdf" >
-	<br>
-	<br>
-	<button type="submit" class="btn btn-primary">Enviar</button>
-	<button type="reset" id="reset"  class="btn btn-default">Limpiar</button>
-	<br>
-    <br>
+  <form enctype="multipart/form-data" method="POST" id="firmar" name="SignFormat">
+    <h2>Firmar electrónica (PDF)</h2>
+    <h3>Seleccione el archivo que va a firmar electrónicamente</h3>
+    <p>
+      <input id="file-sign" class="file" type="file" data-min-file-count="1" name="upload" accept="application/pdf" />
+    </p>
+    <p>
+      <button type="submit" class="btn btn-primary">Enviar</button>
+      <button type="reset" id="reset"  class="btn btn-default">Limpiar</button>
+    </p>
     <div id="seccion1"> </div>
-    <br>
     <div id="seccion2"> </div>
-    <br>
     <div id="seccion3"> </div>
-    <br>
     <div id="seccion4"> </div>
-</form>
-  <script src="./js/jquery.min.js"></script>
+  </form>
+
   <script src="./js/gitversion.js"></script>
+  <script src="./js/jquery.min.js"></script>
   <script src="./js/hex2base.js"></script>
   <script src="./js/hwcrypto-legacy.js"></script>
   <script src="./js/hwcrypto.js"></script>
 
-<!-- 
-https://cdnjs.cloudflare.com/ajax/libs/forge/0.7.6/forge.min.js
-https://cdnjs.cloudflare.com/ajax/libs/forge/0.7.6/forge.all.min.js
+  <!--
 
-https://tibisay.cenditel.gob.ve/murachi/wiki/actividades_2018_pruebas
--->
+  https://github.com/hwcrypto/hwcrypto.js
+
+  https://developer.mozilla.org/es/docs/Web/Guide/Usando_Objetos_FormData
+
+  https://cdnjs.cloudflare.com/ajax/libs/forge/0.7.6/forge.min.js
+  https://cdnjs.cloudflare.com/ajax/libs/forge/0.7.6/forge.all.min.js
+
+  https://tibisay.cenditel.gob.ve/murachi/wiki/actividades_2018_pruebas
+  -->
 
 
   <script>
@@ -108,5 +110,3 @@ https://tibisay.cenditel.gob.ve/murachi/wiki/actividades_2018_pruebas
 </head>
 </body>
 </html>
-
-
